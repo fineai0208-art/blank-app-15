@@ -265,7 +265,7 @@ def analyze_article(text: str, api_key: str) -> tuple[dict | None, str | None]:
     try:
         import anthropic
 
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key.strip())
 
         prompt = f"""당신은 30년 경력의 미디어 심리학자이자 전직 보도국 데스크입니다.
 아래 뉴스 기사가 독자의 심리를 어떻게 조작하고 어떤 프레임을 씌웠는지 냉정하게 분석하세요.
@@ -312,20 +312,32 @@ biases는 최대 3개, words는 3~5개 추출하세요. triggers 값은 0~100 �
 기사 본문:
 {text}"""
 
-        message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        raw = message.content[0].text.strip()
-
-        # JSON 블록만 추출 (```json ... ``` 혹은 { ... } 패턴 방어)
-        json_match = re.search(r'\{[\s\S]*\}', raw)
-        if not json_match:
-            return None, "AI 응답에서 JSON을 찾을 수 없습니다. 기사를 다시 입력해 주세요."
-
-        return json.loads(json_match.group()), None
+        # 404 에러 방지를 위해 모델 리스트를 순차적으로 시도 (Fallback 로직)
+        # 1순위: Sonnet 3.5 최신, 2순위: Sonnet 3.5 초기 버전, 3순위: Sonnet 3.5 식별자
+        target_models = ["claude-3-5-sonnet-latest", "claude-3-5-sonnet-20240620", "claude-3-5-sonnet-20241022"]
+        
+        last_exception = None
+        for model_id in target_models:
+            try:
+                message = client.messages.create(
+                    model=model_id,
+                    max_tokens=1500,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                raw = message.content[0].text.strip()
+                json_match = re.search(r'\{[\s\S]*\}', raw)
+                if json_match:
+                    return json.loads(json_match.group()), None
+            except Exception as e:
+                last_exception = e
+                # 404 에러인 경우에만 다음 모델로 시도
+                if "404" in str(e):
+                    continue
+                else:
+                    break
+        
+        # 모든 시도가 실패한 경우 마지막 예외 반환
+        return None, f"엔진 호출 실패 (모델 404): {str(last_exception)}"
 
     except json.JSONDecodeError as e:
         return None, f"JSON 파싱 오류: {e}"
