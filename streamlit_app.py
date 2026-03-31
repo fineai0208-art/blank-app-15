@@ -180,9 +180,9 @@ def perform_deep_analysis(text: str, key: str):
 }}
 각 트리거 수치는 0-100 사이 정수이며, biases는 최대 3개, words는 5개 추출하세요."""
 
-        # 404 에러 방지를 위해 모델명을 최신 식별자인 claude-3-5-sonnet-latest로 수정
+        # 404 에러 해결을 위해 명확한 최신 모델 ID인 claude-3-5-sonnet-20241022를 사용
         message = client.messages.create(
-            model="claude-3-5-sonnet-latest",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=2000,
             messages=[{"role": "user", "content": user_prompt}]
         )
@@ -232,7 +232,7 @@ with st.sidebar:
     st.markdown(f"""
     <div style="font-size:11px; color:var(--muted);">
     <span style="display:inline-block; width:8px; height:8px; background:var(--safe); border-radius:50%; margin-right:8px;"></span>
-    Engine: Claude 3.5 Sonnet (Latest)<br>
+    Engine: Claude 3.5 Sonnet (New)<br>
     Status: Analysis Optimized
     </div>
     """, unsafe_allow_html=True)
@@ -284,7 +284,7 @@ if analyze_btn:
         if error:
             st.error(f"**ANALYSIS FAILED**: {error}")
             if "404" in error:
-                st.info("💡 모델을 찾을 수 없습니다. API Key가 활성화되어 있는지, 그리고 Claude 3.5 Sonnet 모델에 접근 가능한지 확인해주세요.")
+                st.info("💡 모델 식별자를 다시 조정했습니다. 최신 Sonnet 3.5 모델에 접근 가능한지 확인 부탁드립니다.")
         else:
             # 리포트 헤더
             st.markdown('<div class="section-header"><span>DEEP ANALYSIS REPORT</span><span>COMPLETE</span></div>', unsafe_allow_html=True)
