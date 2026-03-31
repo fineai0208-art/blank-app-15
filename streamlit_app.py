@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── 1. 익스트림 고도화 CSS (브랜드 아이덴티티 및 UX 최적화) ──────────────────────────────────────────
+# ── 1. 익스트림 고도화 CSS (st01 감성 완벽 계승 + 현대적 디테일) ──────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;700&display=swap');
@@ -64,7 +64,7 @@ textarea:focus {
     box-shadow: 0 0 0 4px var(--accent-glow) !important;
 }
 
-/* 버튼 네오-브루탈리즘 스타일 */
+/* 버튼 스타일 (네오-브루탈리즘) */
 .stButton > button {
     width: 100%;
     background: linear-gradient(145deg, var(--accent), #a01010) !important;
@@ -85,7 +85,7 @@ textarea:focus {
     box-shadow: 0 12px 45px rgba(232, 64, 64, 0.5) !important;
 }
 
-/* 섹션 헤더 디자인 */
+/* 섹션 헤더 */
 .section-header {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -99,7 +99,7 @@ textarea:focus {
     justify-content: space-between;
 }
 
-/* 카드 시스템 고도화 */
+/* 카드 시스템 */
 .glass-card {
     background: var(--glass);
     border: 1px solid var(--border);
@@ -128,21 +128,13 @@ textarea:focus {
     border-radius: 12px;
 }
 
-/* IP 보호 고지 (영문 혼용 철벽 방어) */
+/* IP 보호 고지 */
 .ip-protection-notice {
     background: rgba(245, 166, 35, 0.03);
     border: 1px solid rgba(245, 166, 35, 0.12);
     border-radius: 14px;
     padding: 22px;
     margin-bottom: 40px;
-}
-.ip-title-en {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--accent2);
-    letter-spacing: 0.15em;
-    margin-bottom: 12px;
 }
 
 /* 애니메이션 */
@@ -154,7 +146,7 @@ textarea:focus {
 </style>
 """, unsafe_allow_html=True)
 
-# ── 2. Claude API 고도화 로직 (긴 기사 대응 및 모델 최신화) ──────────────────────────────
+# ── 2. Claude API 고도화 로직 (st01 계승 및 404 해결) ──────────────────────────────
 def perform_deep_analysis(text: str, key: str):
     """Claude Sonnet 3.5 최신 엔진을 활용한 고차원 미디어 심리 구조 해체"""
     if not key or not key.startswith("sk-"):
@@ -162,7 +154,6 @@ def perform_deep_analysis(text: str, key: str):
 
     try:
         import anthropic
-        # API 키에서 공백 제거
         client = anthropic.Anthropic(api_key=key.strip())
         
         system_prompt = """당신은 30년 경력의 미디어 심리학자이자 전직 보도국 데스크입니다. 
@@ -187,25 +178,24 @@ def perform_deep_analysis(text: str, key: str):
 }}
 각 트리거 수치는 0-100 정수, biases는 3개, words는 5개 추출하세요."""
 
-        # 최신 모델 ID 사용 (401 오류는 대개 키 자체의 문제이나, 모델명 정확성도 중요)
+        # 최신 모델 ID 고정 (claude-3-5-sonnet-20241022)
         message = client.messages.create(
             model="claude-3-5-sonnet-20241022",
-            max_tokens=4000, # 긴 분석 대응을 위해 토큰 대폭 상향
-            temperature=0,    # 분석의 일관성을 위해 0으로 설정
+            max_tokens=4000,
+            temperature=0,
             messages=[{"role": "user", "content": user_prompt}],
             system=system_prompt
         )
         
         response_text = message.content[0].text.strip()
-        # JSON 블록 추출 로직 강화
         match = re.search(r'(\{[\s\S]*\})', response_text)
         if match:
             return json.loads(match.group(1)), None
-        return None, "JSON 응답 파싱 실패. 시스템이 유효한 데이터를 생성하지 못했습니다."
+        return None, "JSON 응답 파싱 실패."
     except Exception as e:
         return None, str(e)
 
-# ── 3. 사이드바 (API 인증 및 IP 보호) ──────────────────────────────────────────
+# ── 3. 사이드바 (API 자동저장 팝업 대응 구조) ──────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
     <div style="padding: 10px 0 40px;">
@@ -216,7 +206,7 @@ with st.sidebar:
 
     st.markdown(f"""
     <div class="ip-protection-notice">
-        <div class="ip-title-en">⚠️ INTELLECTUAL PROPERTY NOTICE</div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--accent2); letter-spacing:0.15em; margin-bottom:12px;">⚠️ INTELLECTUAL PROPERTY NOTICE</div>
         <div style="font-size:11px; color:#b0860a; line-height:1.8;">
             본 시스템의 핵심 알고리즘 및 지표화 아키텍처는 <b>대한민국 특허법 제30조(공지예외주장)</b>에 의거 보호받는 고유 자산입니다.<br><br>
             © 2026. All Rights Reserved. Proprietary Framework.
@@ -226,14 +216,12 @@ with st.sidebar:
 
     st.markdown('<div class="section-header"><span>API AUTHENTICATION</span></div>', unsafe_allow_html=True)
     
-    # 세션 상태 초기화
+    # 브라우저 자동저장을 유도하기 위해 st.form을 활용
     if 'api_key_stored' not in st.session_state:
         st.session_state['api_key_stored'] = ""
 
-    # 브라우저 자동저장을 유도하기 위한 폼 구조
     with st.form("api_key_form"):
         st.markdown('<div style="font-size:11px; color:var(--muted); margin-bottom:5px;">Password-secured API Key</div>', unsafe_allow_html=True)
-        # label을 명확히 주어 브라우저 인식을 도움
         input_key = st.text_input(
             "Claude API Password", 
             type="password", 
@@ -245,7 +233,7 @@ with st.sidebar:
         if submit_btn:
             if input_key.startswith("sk-"):
                 st.session_state['api_key_stored'] = input_key.strip()
-                st.success("인증 키가 동기화되었습니다.")
+                st.success("인증 키 동기화 완료.")
             else:
                 st.error("잘못된 형식의 API 키입니다.")
 
@@ -257,15 +245,6 @@ with st.sidebar:
     🗣️ Loaded Word & Agitation Filter<br>
     ⚖️ Information Asymmetry Audit<br>
     📋 Executive Editor's Assessment
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown(f"""
-    <div style="font-size:11px; color:var(--muted);">
-    <span style="display:inline-block; width:8px; height:8px; background:var(--safe); border-radius:50%; margin-right:8px;"></span>
-    Engine: Claude 3.5 Sonnet (Pro)<br>
-    Status: Analysis Optimized
     </div>
     """, unsafe_allow_html=True)
 
@@ -295,7 +274,7 @@ with st.container():
         valid_color = "#22c55e" if input_len >= 120 else "#e84040"
         st.markdown(f"""
         <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:{valid_color}; margin-top:15px;">
-            {input_len} CHARACTERS LOADED — {"READY TO ANALYZE" if input_len >= 120 else f"MINIMUM 120 CHARS REQUIRED (NEED {120-input_len} MORE)"}
+            {input_len} CHARACTERS LOADED — {"READY TO ANALYZE" if input_len >= 120 else f"MINIMUM 120 CHARS REQUIRED"}
         </div>
         """, unsafe_allow_html=True)
         
@@ -304,25 +283,18 @@ with st.container():
 
 st.markdown('<div style="margin: 50px 0;"></div>', unsafe_allow_html=True)
 
-# ── 6. 분석 결과 리포트 ──────────────────────────────────────────────────
+# ── 6. 분석 결과 리포트 (Elite Layout) ──────────────────────────────────────────────────
 if execute_analysis:
-    # 세션 상태에 저장된 키를 우선적으로 사용
-    active_key = st.session_state['api_key_stored'] if st.session_state['api_key_stored'] else input_key
+    active_key = st.session_state['api_key_stored']
     
     if not active_key:
         st.error("⚠️ 인증 오류: 사이드바에서 API 키를 입력하고 'CONNECT' 버튼을 눌러주세요.")
-    elif not active_key.startswith("sk-"):
-        st.error("⚠️ 형식 오류: 유효한 Claude API 키(sk-...)를 입력해주세요.")
     else:
         with st.spinner("🔬 Claude 3.5 Pro 엔진이 기사 구조를 정밀 분석 중입니다..."):
             res, error_log = perform_deep_analysis(article_input, active_key)
             
         if error_log:
             st.error(f"**CRITICAL ENGINE ERROR**: {error_log}")
-            if "401" in error_log:
-                st.warning("💡 인증 실패(401): 입력하신 API 키가 유효하지 않거나 만료되었습니다. 복사 과정에서 공백이 포함되지 않았는지, 결제가 정상적으로 처리되었는지 확인해주세요.")
-            elif "404" in error_log:
-                st.info("💡 모델 오류(404): 시스템이 지정된 모델을 찾을 수 없습니다. 모델 ID 설정을 확인하십시오.")
         else:
             st.markdown('<div class="section-header"><span>DEEP ANALYSIS REPORT</span><span>GENERATED BY PRO ENGINE</span></div>', unsafe_allow_html=True)
             
@@ -370,7 +342,7 @@ if execute_analysis:
                 st.dataframe(word_report, use_container_width=True, hide_index=True)
 
             with side_pane:
-                # 섹션 C: 방사형 차트 (Radar Chart)
+                # 섹션 C: 방사형 차트 (Radar Chart 복원)
                 st.markdown('<div class="section-title">C. Psychological Trigger Indexing</div>', unsafe_allow_html=True)
                 
                 s_trig = res['triggers']
@@ -400,7 +372,7 @@ if execute_analysis:
                 )
                 st.plotly_chart(r_fig, use_container_width=True)
 
-                # 상세 수치 바 (Visual Feedback)
+                # 상세 수치 바
                 m_map = {'anger': '분노', 'fear': '공포', 'disgust': '혐오', 'crisis': '위기감', 'bias': '확증편향'}
                 for m_key, m_val in s_trig.items():
                     st.markdown(f"""
@@ -424,22 +396,14 @@ if execute_analysis:
                 </div>
                 """, unsafe_allow_html=True)
 
-            # 푸터
-            st.markdown('<hr style="border:none; border-top:2px solid var(--border); margin:70px 0;">', unsafe_allow_html=True)
-            st.markdown("""
-            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#374151; text-align:center; letter-spacing:0.3em;">
-                CORE COGNITIVE ANALYSIS ENGINE © 2026 · PRIVATE INFRASTRUCTURE · ALL RIGHTS RESERVED
-            </div>
-            """, unsafe_allow_html=True)
-
 # ── 7. 초기 화면 가이드 ──────────────────────────────────────────────────────────────
 else:
     st.markdown('<div style="margin-top:40px;"></div>', unsafe_allow_html=True)
     g_c1, g_c2, g_c3 = st.columns(3)
     g_info = [
-        ("01", "PASTE ARTICLE", "분석을 원하는 뉴스 기사 본문을 입력창에 붙여넣으세요. 기사가 길수록 AI가 더 깊은 맥락을 파헤칩니다."),
-        ("02", "CORE DISSECTION", "Claude 3.5 Sonnet Pro 엔진이 기사 이면의 심리적 아키텍처와 인지 편향을 정밀 해부합니다."),
-        ("03", "VISUAL REPORT", "수치화된 감정 트리거 지수와 선동 어휘 리포트를 통해 보도의 객관성을 즉각 검증하세요.")
+        ("01", "PASTE ARTICLE", "분석을 원하는 뉴스 기사 본문을 입력창에 붙여넣으세요."),
+        ("02", "CORE DISSECTION", "Claude 3.5 Sonnet Pro 엔진이 기사 이면의 심리적 구조를 해부합니다."),
+        ("03", "VISUAL REPORT", "수치화된 감정 지수와 선동 어휘 리포트를 즉각 확인하세요.")
     ]
     for g_col, (g_num, g_title, g_desc) in zip([g_c1, g_c2, g_c3], g_info):
         with g_col:
