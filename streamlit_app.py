@@ -575,17 +575,18 @@ if run:
             if words:
                 df = pd.DataFrame(words)
                 df.columns = ['자극 어휘', '심리 효과', '대체어'] if len(df.columns) == 3 else df.columns
-                st.dataframe(
-                df,
-                use_container_width=False,  # 화면 폭에 억지로 맞추기 해제!
-                hide_index=True,
-                height=250,
-                column_config={
-                    "자극 어휘": st.column_config.TextColumn(width=120),
-                    "심리 효과": st.column_config.TextColumn(width=500), # 너비를 강제로 500픽셀까지 늘림
-                    "대체어": st.column_config.TextColumn(width=200),
-                }
-            )
+                 st.dataframe(
+                    df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=250,
+                    column_config={
+                        "자극 어휘": st.column_config.TextColumn(width="small"),
+                        "심리 효과": st.column_config.TextColumn(width="medium"),
+                        "대체어": st.column_config.TextColumn(width="small"),
+                    }
+                )
+
             else:
                 st.markdown('<div style="color:var(--muted); font-size:13px;">추출된 선동 어휘 없음</div>', unsafe_allow_html=True)
 
