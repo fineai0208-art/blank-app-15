@@ -570,26 +570,19 @@ if run:
             """, unsafe_allow_html=True)
 
             # 섹션 E: 선동 어휘 필터 (D 바로 아래)
-            st.markdown('<div class="section-title" style="margin-top:24px;">E. 선동 어휘 필터</div>', unsafe_allow_html=True)
-            words = data.get("words", [])
-            if words:
-                df = pd.DataFrame(words)
-                df.columns = ['자극 어휘', '심리 효과', '대체어'] if len(df.columns) == 3 else df.columns
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=250,
-                    column_config={
-                        "자극 어휘": st.column_config.TextColumn(width="small"),
-                        "심리 효과": st.column_config.TextColumn(width="medium"),
-                        "대체어": st.column_config.TextColumn(width="small"),
-                    }
-                )
-
-            else:
-                st.markdown('<div style="color:var(--muted); font-size:13px;">추출된 선동 어휘 없음</div>', unsafe_allow_html=True)
-
+        st.markdown('<div class="section-title" style="margin-top:24px;">E. 선동 어휘 필터</div>', unsafe_allow_html=True)
+        words = data.get("words", [])
+        if words:
+            df = pd.DataFrame(words)
+            df.columns = ['자극 어휘', '심리 효과', '대체어'] if len(df.columns) == 3 else df.columns
+            
+            # 인덱스(0, 1, 2...) 숨기기 꼼수
+            df.index = [''] * len(df)
+            
+            # 텍스트가 잘리지 않고 다 보이는 table 사용
+            st.table(df)
+        else:
+            st.markdown('<div style="color:var(--muted); font-size:13px;">추출된 선동 어휘 없음</div>', unsafe_allow_html=True)
         with right:
             # 섹션 C: 방사형 차트
             st.markdown('<div class="section-title">C. 심리 트리거 지수</div>', unsafe_allow_html=True)
