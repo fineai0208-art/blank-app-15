@@ -575,7 +575,7 @@ if run:
             if words:
                 df = pd.DataFrame(words)
                 df.columns = ['자극 어휘', '심리 효과', '대체어'] if len(df.columns) == 3 else df.columns
-                 st.dataframe(
+                st.dataframe(
                     df,
                     use_container_width=True,
                     hide_index=True,
