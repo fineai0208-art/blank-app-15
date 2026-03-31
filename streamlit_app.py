@@ -156,7 +156,7 @@ textarea:focus {
 
 # ── 2. Claude API 고도화 분석 로직 ───────────────────────────────────────────────────
 def perform_deep_analysis(text: str, key: str):
-    """Claude Sonnet 4.5 엔진을 활용한 미디어 심리 구조 해부"""
+    """Claude Sonnet 최신 엔진을 활용한 미디어 심리 구조 해부"""
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=key)
@@ -180,8 +180,9 @@ def perform_deep_analysis(text: str, key: str):
 }}
 각 트리거 수치는 0-100 사이 정수이며, biases는 최대 3개, words는 5개 추출하세요."""
 
+        # 404 에러 방지를 위해 모델명을 최신 식별자인 claude-3-5-sonnet-latest로 수정
         message = client.messages.create(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-5-sonnet-latest",
             max_tokens=2000,
             messages=[{"role": "user", "content": user_prompt}]
         )
@@ -231,7 +232,7 @@ with st.sidebar:
     st.markdown(f"""
     <div style="font-size:11px; color:var(--muted);">
     <span style="display:inline-block; width:8px; height:8px; background:var(--safe); border-radius:50%; margin-right:8px;"></span>
-    Engine: Claude 3.5 Sonnet<br>
+    Engine: Claude 3.5 Sonnet (Latest)<br>
     Status: Analysis Optimized
     </div>
     """, unsafe_allow_html=True)
@@ -260,7 +261,7 @@ with input_area:
     col_stat, col_action = st.columns([4, 1])
     with col_stat:
         char_len = len(article_text)
-        status_color = var_color = var_safe = "#22c55e" if char_len > 100 else "#e84040"
+        status_color = "#22c55e" if char_len > 100 else "#e84040"
         st.markdown(f"""
         <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:{status_color}; margin-top:10px;">
             {char_len} CHARACTERS LOADED — {"READY TO ANALYZE" if char_len > 100 else "MINIMUM 100 CHARS REQUIRED"}
@@ -282,6 +283,8 @@ if analyze_btn:
             
         if error:
             st.error(f"**ANALYSIS FAILED**: {error}")
+            if "404" in error:
+                st.info("💡 모델을 찾을 수 없습니다. API Key가 활성화되어 있는지, 그리고 Claude 3.5 Sonnet 모델에 접근 가능한지 확인해주세요.")
         else:
             # 리포트 헤더
             st.markdown('<div class="section-header"><span>DEEP ANALYSIS REPORT</span><span>COMPLETE</span></div>', unsafe_allow_html=True)
