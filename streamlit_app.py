@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import json
 import re
 import time
+import os
 
 # ── 0. 페이지 설정 (Elite Dashboard Config) ───────────────────────────────────────────────────
 st.set_page_config(
@@ -156,9 +157,13 @@ textarea:focus {
 # ── 2. Claude API 고도화 로직 (긴 기사 대응 및 모델 최신화) ──────────────────────────────
 def perform_deep_analysis(text: str, key: str):
     """Claude Sonnet 3.5 최신 엔진을 활용한 고차원 미디어 심리 구조 해체"""
+    if not key or not key.startswith("sk-"):
+        return None, "유효한 Claude API 키가 아닙니다. 'sk-'로 시작하는 키를 입력했는지 확인하세요."
+
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=key)
+        # API 키에서 공백 제거
+        client = anthropic.Anthropic(api_key=key.strip())
         
         system_prompt = """당신은 30년 경력의 미디어 심리학자이자 전직 보도국 데스크입니다. 
 뉴스의 표면적 팩트가 아니라, 독자의 뇌를 어떻게 해킹(Hacking)하는지 분석하세요. 
@@ -182,28 +187,29 @@ def perform_deep_analysis(text: str, key: str):
 }}
 각 트리거 수치는 0-100 정수, biases는 3개, words는 5개 추출하세요."""
 
-        # 404 에러 완벽 차단을 위해 검증된 모델 ID 사용 (Sonnet 3.5)
+        # 최신 모델 ID 사용 (401 오류는 대개 키 자체의 문제이나, 모델명 정확성도 중요)
         message = client.messages.create(
             model="claude-3-5-sonnet-20241022",
-            max_tokens=3000, # 긴 분석 대응을 위해 토큰 상향
-            temperature=0.2,
+            max_tokens=4000, # 긴 분석 대응을 위해 토큰 대폭 상향
+            temperature=0,    # 분석의 일관성을 위해 0으로 설정
             messages=[{"role": "user", "content": user_prompt}],
             system=system_prompt
         )
         
         response_text = message.content[0].text.strip()
-        match = re.search(r'\{[\s\S]*\}', response_text)
+        # JSON 블록 추출 로직 강화
+        match = re.search(r'(\{[\s\S]*\})', response_text)
         if match:
-            return json.loads(match.group()), None
-        return None, "JSON 응답 파싱 실패. 다시 시도해 주십시오."
+            return json.loads(match.group(1)), None
+        return None, "JSON 응답 파싱 실패. 시스템이 유효한 데이터를 생성하지 못했습니다."
     except Exception as e:
         return None, str(e)
 
-# ── 3. 사이드바 (IP 보호 및 API 자동저장 트리거 대응) ──────────────────────────────────────────
+# ── 3. 사이드바 (API 인증 및 IP 보호) ──────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
     <div style="padding: 10px 0 40px;">
-        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); letter-spacing:0.4em; margin-bottom:12px;">SYSTEM V2.6 ELITE</div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); letter-spacing:0.4em; margin-bottom:12px;">SYSTEM V2.7 ELITE</div>
         <div style="font-family:'DM Serif Display',serif; font-size:40px; color:#fff; line-height:0.9;">Framing<br>Intelligence</div>
     </div>
     """, unsafe_allow_html=True)
@@ -212,30 +218,38 @@ with st.sidebar:
     <div class="ip-protection-notice">
         <div class="ip-title-en">⚠️ INTELLECTUAL PROPERTY NOTICE</div>
         <div style="font-size:11px; color:#b0860a; line-height:1.8;">
-            본 시스템의 핵심 분석 알고리즘 및 지표화 아키텍처는 <b>대한민국 특허법 제30조(공지예외주장)</b>에 의거하여 보호받는 개발자 고유 자산입니다.<br><br>
+            본 시스템의 핵심 알고리즘 및 지표화 아키텍처는 <b>대한민국 특허법 제30조(공지예외주장)</b>에 의거 보호받는 고유 자산입니다.<br><br>
             © 2026. All Rights Reserved. Proprietary Framework.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="section-header"><span>API CONFIGURATION</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><span>API AUTHENTICATION</span></div>', unsafe_allow_html=True)
     
-    # 브라우저 자동저장 팝업을 유도하기 위해 st.form을 활용
-    with st.form("api_access_form"):
-        st.markdown('<div style="font-size:11px; color:var(--muted); margin-bottom:5px;">System Access Key (Claude API)</div>', unsafe_allow_html=True)
-        # 패스워드 타입으로 지정하여 브라우저가 중요 정보로 인식하게 유도
-        user_api_key = st.text_input(
-            "Access Token", 
+    # 세션 상태 초기화
+    if 'api_key_stored' not in st.session_state:
+        st.session_state['api_key_stored'] = ""
+
+    # 브라우저 자동저장을 유도하기 위한 폼 구조
+    with st.form("api_key_form"):
+        st.markdown('<div style="font-size:11px; color:var(--muted); margin-bottom:5px;">Password-secured API Key</div>', unsafe_allow_html=True)
+        # label을 명확히 주어 브라우저 인식을 도움
+        input_key = st.text_input(
+            "Claude API Password", 
             type="password", 
+            value=st.session_state['api_key_stored'],
             placeholder="sk-ant-...",
             label_visibility="collapsed"
         )
-        submit_key = st.form_submit_button("SAVE & AUTHENTICATE")
-        if submit_key:
-            st.session_state['api_key_stored'] = user_api_key
-            st.success("Access Token Synchronized.")
+        submit_btn = st.form_submit_button("CONNECT & SECURE KEY")
+        if submit_btn:
+            if input_key.startswith("sk-"):
+                st.session_state['api_key_stored'] = input_key.strip()
+                st.success("인증 키가 동기화되었습니다.")
+            else:
+                st.error("잘못된 형식의 API 키입니다.")
 
-    st.markdown('<div class="section-header"><span>ANALYTICS CAPABILITIES</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><span>CAPABILITIES</span></div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:12px; color:var(--muted); line-height:2.6;">
     🔬 5-Factor Psychological Indexing<br>
@@ -262,15 +276,15 @@ st.markdown("""
     <p style="font-family:'IBM Plex Mono',monospace; font-size: 18px; color: var(--muted); letter-spacing: 0.3em; text-transform:uppercase;">
         Strategic Media Intelligence & Psychological Structural Analysis
     </p>
-    <div style="width: 120px; height: 6px; background: var(--accent); border-radius: 3px; margin-top: 35px;"></div>
+    <div style="width: 120px; height: 6px; background: var(--accent); border-radius: 2px; margin-top: 35px;"></div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── 5. 기사 입력부 (긴 기사 입력에 최적화) ───────────────────────────────────────────────────
+# ── 5. 기사 입력부 ───────────────────────────────────────────────────
 with st.container():
     article_input = st.text_area(
         "분석할 뉴스 기사 본문",
-        height=400, # 긴 기사를 위해 높이 상향
+        height=450, 
         placeholder="분석하고자 하는 뉴스 기사의 전체 텍스트를 입력하세요. 시스템이 즉시 심리적 아키텍처를 추적합니다.",
         label_visibility="collapsed"
     )
@@ -281,29 +295,34 @@ with st.container():
         valid_color = "#22c55e" if input_len >= 120 else "#e84040"
         st.markdown(f"""
         <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:{valid_color}; margin-top:15px;">
-            {input_len} CHARACTERS LOADED — {"SYSTEM READY FOR DEEP SCAN" if input_len >= 120 else f"MINIMUM 120 CHARS REQUIRED (NEED {120-input_len} MORE)"}
+            {input_len} CHARACTERS LOADED — {"READY TO ANALYZE" if input_len >= 120 else f"MINIMUM 120 CHARS REQUIRED (NEED {120-input_len} MORE)"}
         </div>
         """, unsafe_allow_html=True)
         
     with action_col:
-        # 버튼을 누르면 분석 실행
         execute_analysis = st.button("▶ EXECUTE DEEP SCAN", disabled=(input_len < 120))
 
 st.markdown('<div style="margin: 50px 0;"></div>', unsafe_allow_html=True)
 
-# ── 6. 분석 결과 리포트 (Elite Layout) ──────────────────────────────────────────────────
+# ── 6. 분석 결과 리포트 ──────────────────────────────────────────────────
 if execute_analysis:
-    key_to_use = st.session_state.get('api_key_stored', user_api_key)
-    if not key_to_use:
-        st.error("⚠️ ACCESS DENIED: API Key is required. Please check the sidebar.")
+    # 세션 상태에 저장된 키를 우선적으로 사용
+    active_key = st.session_state['api_key_stored'] if st.session_state['api_key_stored'] else input_key
+    
+    if not active_key:
+        st.error("⚠️ 인증 오류: 사이드바에서 API 키를 입력하고 'CONNECT' 버튼을 눌러주세요.")
+    elif not active_key.startswith("sk-"):
+        st.error("⚠️ 형식 오류: 유효한 Claude API 키(sk-...)를 입력해주세요.")
     else:
-        with st.spinner("🔬 Dissecting Media Architecture using Claude 3.5 Pro..."):
-            res, error_log = perform_deep_analysis(article_input, key_to_use)
+        with st.spinner("🔬 Claude 3.5 Pro 엔진이 기사 구조를 정밀 분석 중입니다..."):
+            res, error_log = perform_deep_analysis(article_input, active_key)
             
         if error_log:
             st.error(f"**CRITICAL ENGINE ERROR**: {error_log}")
-            if "404" in error_log:
-                st.info("💡 모델 식별자를 다시 확인해 주세요. 현재 시스템은 claude-3-5-sonnet-20241022 버전을 사용 중입니다.")
+            if "401" in error_log:
+                st.warning("💡 인증 실패(401): 입력하신 API 키가 유효하지 않거나 만료되었습니다. 복사 과정에서 공백이 포함되지 않았는지, 결제가 정상적으로 처리되었는지 확인해주세요.")
+            elif "404" in error_log:
+                st.info("💡 모델 오류(404): 시스템이 지정된 모델을 찾을 수 없습니다. 모델 ID 설정을 확인하십시오.")
         else:
             st.markdown('<div class="section-header"><span>DEEP ANALYSIS REPORT</span><span>GENERATED BY PRO ENGINE</span></div>', unsafe_allow_html=True)
             
