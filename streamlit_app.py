@@ -75,6 +75,15 @@ textarea:focus, input:focus {
     box-shadow: 0 6px 20px rgba(232,64,64,0.4) !important;
 }
 
+/* Streamlit 기본 컴포넌트 dark 처리 */
+.stSelectbox > div > div,
+.stSlider { background: transparent !important; }
+[data-baseweb="select"] > div {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
 /* 스피너 */
 .stSpinner > div { border-top-color: var(--accent) !important; }
 
@@ -83,6 +92,22 @@ textarea:focus, input:focus {
 .block-container { padding-top: 2rem !important; }
 
 /* 커스텀 카드들 */
+.hero-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(28px, 4vw, 48px);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: #fff;
+    margin-bottom: 4px;
+}
+.hero-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+}
 .frame-banner {
     background: linear-gradient(135deg, rgba(232,64,64,0.12), rgba(232,64,64,0.03));
     border: 1px solid rgba(232,64,64,0.4);
@@ -226,6 +251,32 @@ textarea:focus, input:focus {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
 }
+
+/* 데이터프레임 다크 테마 */
+[data-testid="stDataFrame"] { background: var(--surface) !important; }
+.stDataFrame { border: 1px solid var(--border) !important; border-radius: 8px; overflow: hidden; }
+
+/* 탭 스타일 개선 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 24px;
+    background-color: transparent;
+}
+.stTabs [data-baseweb="tab"] {
+    height: 50px;
+    white-space: pre-wrap;
+    background-color: transparent;
+    border-radius: 4px 4px 0px 0px;
+    gap: 1px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    color: #6b7280;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--accent) !important;
+    border-bottom-color: var(--accent) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -236,7 +287,7 @@ def analyze_article(text: str, api_key: str) -> tuple[dict | None, str | None]:
     try:
         import anthropic
 
-        client = anthropic.Anthropic(api_key=api_key.strip())
+        client = anthropic.Anthropic(api_key=api_key)
 
         prompt = f"""당신은 30년 경력의 미디어 심리학자이자 전직 보도국 데스크입니다.
 아래 뉴스 기사가 독자의 심리를 어떻게 조작하고 어떤 프레임을 씌웠는지 냉정하게 분석하세요.
@@ -279,11 +330,9 @@ def analyze_article(text: str, api_key: str) -> tuple[dict | None, str | None]:
 }}
 
 biases는 최대 3개, words는 3~5개 추출하세요. triggers 값은 0~100 정수입니다.
-
 기사 본문:
 {text}"""
 
-        # 원본 코드(st01.txt)의 모델명을 그대로 사용
         message = client.messages.create(
             model="claude-sonnet-4-5",
             max_tokens=1500,
@@ -291,7 +340,10 @@ biases는 최대 3개, words는 3~5개 추출하세요. triggers 값은 0~100 �
         )
 
         raw = message.content[0].text.strip()
+
+        # JSON 블록만 추출 (```json ... ``` 혹은 { ... } 패턴 방어)
         json_match = re.search(r'\{[\s\S]*\}', raw)
+ 
         if not json_match:
             return None, "AI 응답에서 JSON을 찾을 수 없습니다. 기사를 다시 입력해 주세요."
 
@@ -300,9 +352,15 @@ biases는 최대 3개, words는 3~5개 추출하세요. triggers 값은 0~100 �
     except json.JSONDecodeError as e:
         return None, f"JSON 파싱 오류: {e}"
     except ImportError:
-        return None, "anthropic 패키지가 설치되지 않았습니다."
+        return None, "anthropic 패키지가 설치되지 않았습니다.\n터미널에서: pip install anthropic"
     except Exception as e:
         err = str(e)
+        if "authentication" in err.lower() or "invalid" in err.lower() or "401" in err:
+            return None, "API 키가 유효하지 않습니다. console.anthropic.com에서 키를 확인해주세요."
+        if "credit" in err.lower() or "billing" in err.lower() or "402" in err:
+            return None, "크레딧이 부족합니다. console.anthropic.com에서 충전해주세요."
+        if "rate" in err.lower() or "429" in err:
+            return None, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
         return None, f"오류: {err}"
 
 
@@ -329,6 +387,7 @@ with st.sidebar:
 
     st.markdown('<div class="section-title">API 설정</div>', unsafe_allow_html=True)
 
+    # secrets 안전 처리: 없으면 빈 문자열
     try:
         default_key = st.secrets.get("ANTHROPIC_API_KEY", "")
     except Exception:
@@ -382,8 +441,8 @@ st.markdown("""
 st.markdown("""
 <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px;
             padding:14px 18px; margin-bottom:28px; font-size:13px; color:#9ca3af; line-height:1.7;">
-기사 본문을 입력하면 AI 미디어 심리학자가 숨겨진 프레임, 인지편향, 감정 트리거, 선동 어휘를
-실시간으로 해부합니다.
+기사 본문을 입력하면 AI 미디어 심리학자가 <b style="color:#e8eaf0;">숨겨진 프레임, 인지편향, 감정 트리거, 선동 어휘</b>를
+실시간으로 해부합니다. 단순 긍/부정 감성분석이 아닌 <b style="color:#e8eaf0;">심리 조작 구조</b>를 뜯어냅니다.
 </div>
 """, unsafe_allow_html=True)
 
@@ -391,7 +450,7 @@ st.markdown("""
 input_text = st.text_area(
     "분석할 뉴스 기사 본문",
     height=220,
-    placeholder="여기에 분석할 기사의 전체 텍스트를 복사해서 붙여넣으세요...",
+    placeholder="여기에 분석할 기사의 전체 텍스트를 복사해서 붙여넣으세요...\n\n최소 80자 이상 입력해야 분석이 시작됩니다.",
     label_visibility="collapsed"
 )
 
@@ -425,12 +484,7 @@ if run:
         st.error(f"**분석 실패**\n\n{error}")
         st.stop()
 
-    triggers = data.get("triggers", {})
-    total_score = round(sum(triggers.values()) / max(len(triggers), 1))
-    max_trigger = max(triggers, key=triggers.get) if triggers else "—"
-    trigger_labels = {"anger": "분노", "fear": "공포", "disgust": "혐오", "crisis": "위기감", "bias": "확증편향"}
-    max_label = trigger_labels.get(max_trigger, max_trigger)
-
+    # ── 결과 헤더
     st.markdown("""
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px;">
         <div style="font-family:'DM Serif Display',serif; font-size:24px; color:#fff;">심층 분석 리포트</div>
@@ -440,72 +494,292 @@ if run:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── 요약 메트릭
-    st.markdown(f"""
-    <div class="metric-row">
-        <div class="metric-item"><div class="metric-num">{total_score}</div><div class="metric-lbl">종합지수</div></div>
-        <div class="metric-item"><div class="metric-num" style="color:var(--accent2);">{triggers.get(max_trigger, 0)}</div><div class="metric-lbl">최고 ({max_label})</div></div>
-        <div class="metric-item"><div class="metric-num" style="font-size:20px;">{len(data.get('biases', []))}</div><div class="metric-lbl">인지편향</div></div>
-        <div class="metric-item"><div class="metric-num" style="font-size:20px;">{len(data.get('words', []))}</div><div class="metric-lbl">선동 어휘</div></div>
+    triggers = data.get("triggers", {})
+    total_score = round(sum(triggers.values()) / max(len(triggers), 1))
+    max_trigger = max(triggers, key=triggers.get) if triggers else "—"
+    trigger_labels = {"anger": "분노", "fear": "공포", "disgust": "혐오", "crisis": "위기감", "bias": "확증편향"}
+    max_label = trigger_labels.get(max_trigger, max_trigger)
+
+    # ── TABS 구성 ─────────────────────────────────────────────────────────────
+    tab1, tab2 = st.tabs(["📊 기본 분석 리포트", "📈 심층 데이터 시각화"])
+
+    with tab1:
+        # ── 요약 메트릭
+        st.markdown(f"""
+        <div class="metric-row">
+            <div class="metric-item">
+                <div class="metric-num">{total_score}</div>
+                <div class="metric-lbl">감정조작 종합지수</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-num" style="color:var(--accent2);">{triggers.get(max_trigger, 0)}</div>
+                <div class="metric-lbl">최고 트리거 ({max_label})</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-num" style="font-size:20px;">{len(data.get('biases', []))}</div>
+                <div class="metric-lbl">감지된 인지편향</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-num" style="font-size:20px;">{len(data.get('words', []))}</div>
+                <div class="metric-lbl">선동 어휘 수</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── 메인 레이아웃
+        left, right = st.columns([3, 2], gap="large")
+
+        with left:
+            # 섹션 A: 핵심 프레임
+            st.markdown('<div class="section-title">A. 핵심 프레이밍 진단</div>', unsafe_allow_html=True)
+            frame = data.get("main_frame", {})
+            st.markdown(f"""
+            <div class="frame-banner">
+                <div class="label">Primary Frame Detected</div>
+                <div class="value">{frame.get('name', 'N/A')}</div>
+                <div class="desc">{frame.get('description', '')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 섹션 B: 인지편향
+            st.markdown('<div class="section-title" style="margin-top:24px;">B. 인지편향 감지</div>', unsafe_allow_html=True)
+            biases = data.get("biases", [])
+            if biases:
+                for b in biases:
+                    st.markdown(f"""
+                    <div class="bias-card">
+                        <div class="bias-name">[ {b.get('name', '')} ]</div>
+                        <div class="bias-ev">{b.get('evidence', '')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="color:var(--muted); font-size:13px;">감지된 주요 편향 없음</div>', unsafe_allow_html=True)
+
+            # 섹션 D: 정보 불균형
+            st.markdown('<div class="section-title" style="margin-top:24px;">D. 정보 불균형 분석</div>', unsafe_allow_html=True)
+            asym = data.get("asymmetry", {})
+            st.markdown(f"""
+            <div class="asym-box" style="border-left:3px solid var(--accent);">
+                <div class="asym-label" style="color:var(--accent);">▲ 과도하게 강조됨</div>
+                <div style="font-size:13px; color:#c0c8d8; line-height:1.7;">{asym.get('over', 'N/A')}</div>
+            </div>
+            <div class="asym-box" style="border-left:3px solid #3b82f6;">
+                <div class="asym-label" style="color:#3b82f6;">▼ 누락·축소됨</div>
+                <div style="font-size:13px; color:#c0c8d8; line-height:1.7;">{asym.get('under', 'N/A')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 섹션 E: 선동 어휘 필터 (D 바로 아래)
+            st.markdown('<div class="section-title" style="margin-top:24px;">E. 선동 어휘 필터</div>', unsafe_allow_html=True)
+            words = data.get("words", [])
+            if words:
+                df = pd.DataFrame(words)
+                df.columns = ['자극 어휘', '심리 효과', '대체어'] if len(df.columns) == 3 else df.columns
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=250,
+                    column_config={
+                        "자극 어휘": st.column_config.TextColumn(width="small"),
+                        "심리 효과": st.column_config.TextColumn(width="medium"),
+                        "대체어": st.column_config.TextColumn(width="small"),
+                    }
+                )
+            else:
+                st.markdown('<div style="color:var(--muted); font-size:13px;">추출된 선동 어휘 없음</div>', unsafe_allow_html=True)
+
+        with right:
+            # 섹션 C: 방사형 차트
+            st.markdown('<div class="section-title">C. 심리 트리거 지수</div>', unsafe_allow_html=True)
+
+            cats = ['분노\n(Anger)', '공포\n(Fear)', '혐오\n(Disgust)', '위기감\n(Crisis)', '확증편향\n(Bias)']
+            vals = [
+                triggers.get('anger', 0),
+                triggers.get('fear', 0),
+                triggers.get('disgust', 0),
+                triggers.get('crisis', 0),
+                triggers.get('bias', 0),
+            ]
+            vals_closed = vals + [vals[0]]
+            cats_closed = cats + [cats[0]]
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(
+                r=vals_closed,
+                theta=cats_closed,
+                fill='toself',
+                fillcolor='rgba(232, 64, 64, 0.15)',
+                line=dict(color='#e84040', width=2.5),
+                name='Trigger Index',
+                hovertemplate='%{theta}: <b>%{r}</b><extra></extra>'
+            ))
+            fig.update_layout(
+                polar=dict(
+                    bgcolor='rgba(17,19,24,0)',
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, 100],
+                        tickfont=dict(size=9, color='#6b7280', family='IBM Plex Mono'),
+                        gridcolor='#1e2330',
+                        linecolor='#1e2330',
+                        tickvals=[25, 50, 75, 100]
+                    ),
+                    angularaxis=dict(
+                        tickfont=dict(size=10, color='#9ca3af', family='Noto Sans KR'),
+                        gridcolor='#1e2330',
+                        linecolor='#1e2330',
+                    )
+                ),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                showlegend=False,
+                margin=dict(l=50, r=50, t=20, b=20),
+                height=320
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 트리거 수치 바
+            st.markdown('<div class="section-title" style="margin-top:8px;">트리거 수치 상세</div>', unsafe_allow_html=True)
+            trigger_colors = {
+                'anger': '#e84040', 'fear': '#f97316',
+                'disgust': '#a855f7', 'crisis': '#f59e0b', 'bias': '#3b82f6'
+            }
+            trigger_names = {'anger': '분노', 'fear': '공포', 'disgust': '혐오', 'crisis': '위기감', 'bias': '확증편향'}
+
+            for key in ['anger', 'fear', 'disgust', 'crisis', 'bias']:
+                v = triggers.get(key, 0)
+                c = trigger_colors[key]
+                label = trigger_names[key]
+                st.markdown(f"""
+                <div style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-size:12px; color:#9ca3af;">{label}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:12px;
+                                     font-weight:600; color:{c};">{v}</span>
+                    </div>
+                    <div style="background:var(--border); border-radius:3px; height:4px; overflow:hidden;">
+                        <div style="width:{v}%; height:100%; background:{c};
+                                    border-radius:3px; transition:width 0.5s ease;"></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # 데스크 총평 (오른쪽 하단)
+            st.markdown(f"""
+            <div class="summary-box" style="margin-top:20px;">
+                <div class="s-label">💡 데스크 총평</div>
+                <div class="s-text">{data.get('summary', '')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with tab2:
+        st.markdown('<br>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">A. 심리 조작 종합 위험도 (Gauge Chart)</div>', unsafe_allow_html=True)
+        
+        # 1. 게이지 차트
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = total_score,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "종합 감정조작 지수", 'font': {'color': '#9ca3af', 'size': 14}},
+            number = {'font': {'color': '#e84040', 'size': 48, 'family': 'IBM Plex Mono'}},
+            gauge = {
+                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "#1e2330"},
+                'bar': {'color': "#e84040"},
+                'bgcolor': "rgba(0,0,0,0)",
+                'borderwidth': 2,
+                'bordercolor': "#1e2330",
+                'steps': [
+                    {'range': [0, 30], 'color': 'rgba(34, 197, 94, 0.15)'},
+                    {'range': [30, 70], 'color': 'rgba(245, 166, 35, 0.15)'},
+                    {'range': [70, 100], 'color': 'rgba(232, 64, 64, 0.15)'}
+                ],
+            }
+        ))
+        fig_gauge.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', font={'color': '#e8eaf0'}, margin=dict(t=40, b=10))
+        st.plotly_chart(fig_gauge, use_container_width=True)
+        
+        st.markdown('<hr class="divider" style="margin:20px 0;">', unsafe_allow_html=True)
+        
+        col_donut, col_bar = st.columns(2, gap="large")
+        
+        # 사용할 데이터 세팅
+        t_labels = list(trigger_names.values())
+        t_values = [triggers.get(k, 0) for k in trigger_names.keys()]
+        t_colors = [trigger_colors[k] for k in trigger_names.keys()]
+
+        with col_donut:
+            st.markdown('<div class="section-title">B. 감정 트리거 비율 (Donut Chart)</div>', unsafe_allow_html=True)
+            
+            # 2. 도넛 차트
+            fig_donut = go.Figure(data=[go.Pie(
+                labels=t_labels, 
+                values=t_values, 
+                hole=.5, 
+                marker_colors=t_colors,
+                textinfo='label+percent'
+            )])
+            fig_donut.update_layout(
+                height=350, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font={'color': '#e8eaf0'},
+                legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5),
+                margin=dict(t=20, b=10, l=10, r=10)
+            )
+            st.plotly_chart(fig_donut, use_container_width=True)
+            
+        with col_bar:
+            st.markdown('<div class="section-title">C. 트리거 분포 상세 (Bar Chart)</div>', unsafe_allow_html=True)
+            
+            # 3. 가로 바 차트
+            fig_bar = go.Figure(go.Bar(
+                x=t_values,
+                y=t_labels,
+                orientation='h',
+                marker_color=t_colors,
+                text=t_values,
+                textposition='auto',
+                textfont=dict(family='IBM Plex Mono', size=13)
+            ))
+            fig_bar.update_layout(
+                height=350,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font={'color': '#e8eaf0'},
+                xaxis=dict(range=[0, 100], gridcolor='#1e2330', showgrid=True),
+                yaxis=dict(autorange="reversed"),
+                margin=dict(t=20, b=10, l=10, r=10)
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+    # ── 하단 주석
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#374151;
+                text-align:center; letter-spacing:0.15em;">
+    본 분석 결과는 AI 보조 도구의 출력물이며 최종 판단은 저널리스트의 전문 검토를 거쳐야 합니다.<br>
+    CORE ALGORITHM © 2025 · PATENT PENDING · ALL RIGHTS RESERVED
     </div>
     """, unsafe_allow_html=True)
 
-    left, right = st.columns([3, 2], gap="large")
-
-    with left:
-        st.markdown('<div class="section-title">A. 핵심 프레이밍 진단</div>', unsafe_allow_html=True)
-        frame = data.get("main_frame", {})
-        st.markdown(f"""<div class="frame-banner"><div class="label">Primary Frame</div><div class="value">{frame.get('name', 'N/A')}</div><div class="desc">{frame.get('description', '')}</div></div>""", unsafe_allow_html=True)
-
-        st.markdown('<div class="section-title" style="margin-top:24px;">B. 인지편향 감지</div>', unsafe_allow_html=True)
-        biases = data.get("biases", [])
-        for b in biases:
-            st.markdown(f"""<div class="bias-card"><div class="bias-name">[ {b.get('name', '')} ]</div><div class="bias-ev">{b.get('evidence', '')}</div></div>""", unsafe_allow_html=True)
-
-        st.markdown('<div class="section-title" style="margin-top:24px;">D. 정보 불균형 분석</div>', unsafe_allow_html=True)
-        asym = data.get("asymmetry", {})
-        st.markdown(f"""<div class="asym-box" style="border-left:3px solid var(--accent);"><div class="asym-label" style="color:var(--accent);">▲ 강조됨</div><div style="font-size:13px; color:#c0c8d8;">{asym.get('over', 'N/A')}</div></div><div class="asym-box" style="border-left:3px solid #3b82f6;"><div class="asym-label" style="color:#3b82f6;">▼ 축소됨</div><div style="font-size:13px; color:#c0c8d8;">{asym.get('under', 'N/A')}</div></div>""", unsafe_allow_html=True)
-
-        st.markdown('<div class="section-title" style="margin-top:24px;">E. 선동 어휘 필터</div>', unsafe_allow_html=True)
-        words = data.get("words", [])
-        if words:
-            df = pd.DataFrame(words)
-            df.columns = ['자극 어휘', '심리 효과', '대체어']
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    with right:
-        # 섹션 C: 방사형 차트 (Elite Pro 시각화 적용 - 유일한 디자인 변경점)
-        st.markdown('<div class="section-title">C. 심리 트리거 지수</div>', unsafe_allow_html=True)
-        cats = ['분노\n(Anger)', '공포\n(Fear)', '혐오\n(Disgust)', '위기감\n(Crisis)', '확증편향\n(Bias)']
-        vals = [triggers.get('anger', 0), triggers.get('fear', 0), triggers.get('disgust', 0), triggers.get('crisis', 0), triggers.get('bias', 0)]
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatterpolar(
-            r=vals + [vals[0]], theta=cats + [cats[0]], fill='toself',
-            fillcolor='rgba(232, 64, 64, 0.2)', line=dict(color='#e84040', width=4),
-            marker=dict(size=10, color='#fff', line=dict(color='#e84040', width=2))
-        ))
-        fig.update_layout(
-            polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], gridcolor='#1e2330', tickfont=dict(size=10, color='#6b7280'))),
-            paper_bgcolor='rgba(0,0,0,0)', showlegend=False, height=450, margin=dict(l=70, r=70, t=70, b=70)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        # 트리거 수치 바
-        for key in ['anger', 'fear', 'disgust', 'crisis', 'bias']:
-            v = triggers.get(key, 0)
-            c = {'anger': '#e84040', 'fear': '#f97316', 'disgust': '#a855f7', 'crisis': '#f59e0b', 'bias': '#3b82f6'}[key]
-            label = {'anger': '분노', 'fear': '공포', 'disgust': '혐오', 'crisis': '위기감', 'bias': '확증편향'}[key]
-            st.markdown(f"""<div style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between;"><span style="font-size:12px; color:#9ca3af;">{label}</span><span style="font-weight:600; color:{c};">{v}</span></div><div style="background:var(--border); height:4px; border-radius:3px; overflow:hidden;"><div style="width:{v}%; height:100%; background:{c}; box-shadow: 0 0 8px {c}44;"></div></div></div>""", unsafe_allow_html=True)
-
-        st.markdown(f"""<div class="summary-box"><div class="s-label">💡 데스크 총평</div><div class="s-text">{data.get('summary', '')}</div></div>""", unsafe_allow_html=True)
-
-    st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown("""<div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#374151; text-align:center; letter-spacing:0.15em;">CORE ALGORITHM © 2025 · PATENT PENDING · ALL RIGHTS RESERVED</div>""", unsafe_allow_html=True)
-
 else:
+    # ── 초기 안내 화면
     c1, c2, c3 = st.columns(3)
-    cards = [("01", "기사 입력", "본문을 위 입력창에 붙여넣으세요."), ("02", "AI 해부", "Claude가 기사 구조를 분해합니다."), ("03", "리포트 확인", "프레임·편향·트리거를 확인하세요.")]
+    cards = [
+        ("01", "기사 입력", "분석할 뉴스 기사 본문을 위 입력창에 붙여넣으세요."),
+        ("02", "AI 해부", "Claude가 미디어 심리학 관점에서 기사 구조를 분해합니다."),
+        ("03", "리포트 확인", "프레임·편향·트리거·어휘·정보불균형을 시각화로 확인하세요."),
+    ]
     for col, (num, title, desc) in zip([c1, c2, c3], cards):
         with col:
-            st.markdown(f"""<div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:24px 20px; height:140px;"><div style="font-family:'IBM Plex Mono',monospace; font-size:28px; font-weight:600; color:var(--border); margin-bottom:10px;">{num}</div><div style="font-weight:700; font-size:14px; margin-bottom:8px; color:#fff;">{title}</div><div style="font-size:12px; color:var(--muted);">{desc}</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:var(--surface); border:1px solid var(--border);
+                        border-radius:10px; padding:24px 20px; height:140px;">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:28px;
+                             font-weight:600; color:var(--border); margin-bottom:10px;">{num}</div>
+                <div style="font-weight:700; font-size:14px; margin-bottom:8px; color:#fff;">{title}</div>
+                <div style="font-size:12px; color:var(--muted); line-height:1.6;">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
