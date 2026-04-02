@@ -1,15 +1,6 @@
 [theme]
-# 1. 메인 네온 포인트: 사이버틱한 네온 시안 (청록빛)
-primaryColor = "#00F5FF" 
-
-# 2. 배경: 완전히 깊은 블랙 (지금 느낌 유지)
-backgroundColor = "#000000"
-
-# 3. 사이드바: 본문 블랙과 대비되는 다크 그레이
-secondaryBackgroundColor = "#111111"
-
-# 4. 글자색: 깨끗한 화이트 (네온과 대비될 때 가장 선명함)
-textColor = "#FFFFFF"
-
-# 5. 폰트: 고딕(Sans Serif) - 세련미의 완성
-font = "sans serif"
+base = "dark"
+backgroundColor = "#0a0c10"
+secondaryBackgroundColor = "#111318"
+textColor = "#e8eaf0"
+primaryColor = "#6366F1"
